@@ -1,0 +1,25 @@
+services:
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  test:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@test-db:5432/testdb
+      - PYTHONPATH=/app
+      - TESTING=true
+    command: pytest -v
+    depends_on:
+      test-db:
+        condition: service_healthy

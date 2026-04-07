@@ -2,18 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install uv
 RUN pip install uv
 
-# Copy dependency files
 COPY pyproject.toml ./
 
-# Install dependencies
-RUN uv pip install --system -e .
+# Install all dependencies including dev
+RUN uv pip install --system -e ".[dev]" || uv pip install --system -e .
 
-# Copy application
 COPY app/ ./app/
+COPY tests/ ./tests/
+COPY alembic/ ./alembic/
 
 EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
