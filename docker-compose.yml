@@ -21,8 +21,7 @@ services:
     build: .
     volumes:
       - .:/app
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/taskdb
+    env_file: .env
     command: sh -c "sleep 3 && alembic upgrade head"
     depends_on:
       db:
@@ -32,8 +31,7 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/taskdb
+    env_file: .env
     depends_on:
       migrate:
         condition: service_completed_successfully  # Wait for migrations to finish

@@ -1,12 +1,21 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import structlog
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/taskdb"
-    debug: bool = False
+    # --- SECRETS (No defaults - App must crash if missing) ---
+    secret_key: str
+    database_url: str
     
-    class Config:
-        env_file = ".env"
+    # --- CONFIGURATION (Defaults are safe) ---
+    algorithm: str = "HS256"  # Standard, safe default
+    access_token_expire_minutes: int = 30  # Standard, safe default
+    debug: bool = False  # Safe default (secure by default)
+    
+    # Pydantic V2 configuration
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 settings = Settings()

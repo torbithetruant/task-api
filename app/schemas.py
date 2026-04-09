@@ -18,3 +18,9 @@ class TaskResponse(TaskBase):
     id: int
     created_at: datetime
     updated_at: datetime | None = None
+
+
+class UserRegister(BaseModel):
+    username: str
+    email: str
+    password: str
