@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, func, ForeignKey
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -10,11 +11,15 @@ class Task(Base):
     title = Column(String(255), nullable=False)
     description = Column(String(1000))
     status = Column(String(20), default="todo")
+    
+    # SECURITY: Link task to a specific user
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Relationship for easy access (e.g., task.owner.username)
+    owner = relationship("User", backref="tasks")
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    # Add foreign key to user when we implement ownership
-    # owner_id = Column(Integer, ForeignKey("users.id"))
 
 
 class User(Base):
