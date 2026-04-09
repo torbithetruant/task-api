@@ -7,6 +7,7 @@ from jose import JWTError
 from app.database import get_db
 from app.models import User
 from app.auth import decode_token
+from app.cache import get_cached_user, cache_user
 import structlog
 
 logger = structlog.get_logger()
@@ -17,7 +18,6 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """Decode JWT token and return current user."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -29,28 +29,37 @@ async def get_current_user(
         if payload is None:
             raise credentials_exception
             
-        username: str = payload.get("sub")
         user_id: int = payload.get("user_id")
-        
-        if username is None or user_id is None:
+        if user_id is None:
             raise credentials_exception
-            
     except JWTError:
-        logger.warning("invalid_token_attempt")
         raise credentials_exception
     
-    # Fetch user from DB to ensure they still exist and are active
+    # 1. Try Cache
+    cached_data = await get_cached_user(user_id)
+    if cached_data:
+        # Reconstruct user object from cache (simplified)
+        # In production, you'd need a robust way to map dict back to ORM or just cache necessary fields
+        # For now, let's just log the cache hit and proceed to DB to ensure ORM consistency
+        logger.info("cache_hit", user_id=user_id)
+    
+    # 2. Fetch from DB (Cache-Aside Pattern)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
     if user is None:
-        logger.warning("user_not_found_in_db", user_id=user_id)
         raise credentials_exception
         
     if not user.is_active:
-        logger.warning("inactive_user_attempt", user_id=user_id)
         raise HTTPException(status_code=400, detail="Inactive user")
-        
+    
+    # 3. Update Cache
+    await cache_user(user_id, {
+        "id": user.id, 
+        "username": user.username, 
+        "email": user.email
+    })
+    
     return user
 
 

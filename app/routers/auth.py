@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,20 +9,28 @@ from app.database import get_db
 from app.models import User
 from app.schemas import UserRegister
 from app.config import settings
+from app.worker import send_welcome_email
 from app.auth import (
     verify_password, 
     create_access_token, 
     get_password_hash
 )
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 router = APIRouter(prefix="/auth", tags=["authentication"])
 logger = structlog.get_logger()
+
+limiter = Limiter(key_func=get_remote_address)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 @router.post("/login")
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
@@ -63,11 +71,10 @@ async def login(
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):  # Change signature
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     """Register a new user with secure password hashing."""
     logger.info("registration_attempt", username=user_data.username)
     
-    # Use user_data fields instead of direct args
     result = await db.execute(select(User).where(User.username == user_data.username))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -91,6 +98,9 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    
+    # SECURITY/PERF: Send email in background (non-blocking)
+    send_welcome_email.delay(user_data.email, user_data.username)
     
     logger.info("user_registered", username=user_data.username, user_id=user.id)
     

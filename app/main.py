@@ -4,6 +4,9 @@ from datetime import datetime
 import structlog
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import configure_logging, settings
 from app.database import engine, get_db
 from app.routers import tasks, auth
-from app.exceptions import BaseAPIException
 
 logger = structlog.get_logger()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,23 +43,21 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None
 )
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# Add Rate Limit Exception Handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Include routers
 app.include_router(tasks.router)
 app.include_router(auth.router)
 
-# Exception handlers
-@app.exception_handler(BaseAPIException)
-async def api_exception_handler(request: Request, exc: BaseAPIException):
-    """Handle custom API exceptions."""
-    logger.warning(
-        "api_exception",
-        error_code=exc.detail["error"]["code"],
-        message=exc.detail["error"]["message"],
-        path=request.url.path
-    )
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"error": {"code": "RATE_LIMIT_EXCEEDED", "message": "Too many attempts, please try again later."}}
     )
 
 
