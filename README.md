@@ -24,15 +24,15 @@ docker-compose up --build
 
 ### Run/Turn-off application
 
-'''powershell
+```powershell
 docker-compose up --build
 
 docker-compose down
-'''
+```
 
 ### Run migrations
 
-'''powershell
+```powershell
 # Start just the DB container
 docker-compose up db -d
 
@@ -41,13 +41,13 @@ docker-compose run --rm migrate alembic revision --autogenerate -m "initial sche
 
 # Apply the migration
 docker-compose run --rm migrate alembic upgrade head
-'''
+```
 
 ### Delete database
 
-'''powershell
+```powershell
 # Delete all files in alembic/versions
 Remove-Item alembic/versions\*.py
 
 docker-compose down -v
-'''
+```
