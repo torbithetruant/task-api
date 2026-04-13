@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import configure_logging, settings
 from app.database import engine, get_db
-from app.routers import tasks, auth
+from app.routers import tasks, auth, admin
 
 logger = structlog.get_logger()
 
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan, 
     title="Task API", 
-    version="0.1.0",
+    version="1.0.0", # Bump version
     docs_url="/docs" if settings.debug else None,  # Disable docs in production
     redoc_url="/redoc" if settings.debug else None
 )
@@ -50,8 +50,9 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include routers
-app.include_router(tasks.router)
-app.include_router(auth.router)
+app.include_router(tasks.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
