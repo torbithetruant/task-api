@@ -18,6 +18,7 @@ docker-compose up --build
 
 - FastAPI + SQLAlchemy 2.0 (async)
 - PostgreSQL 15
+- Redis (caching + rate limiting)
 - Docker + docker-compose
 
 ## Important Commands
@@ -56,22 +57,22 @@ docker-compose down -v
 
 ```powershell
 # Register & Login
- $token = Invoke-RestMethod -Method POST -Uri "http://localhost:8000/auth/login" -ContentType "application/x-www-form-urlencoded" -Body "username=bob&password=password123"
+ $token = Invoke-RestMethod -Method POST -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/x-www-form-urlencoded" -Body "username=bob&password=password123"
  $headers = @{"Authorization" = "Bearer $($token.access_token)"}
 ```
 
 ```powershell
 # Create task
- $newTask = Invoke-RestMethod -Method POST -Uri "http://localhost:8000/tasks/" -Headers $headers -ContentType "application/json" -Body '{"title":"Finish Project 1","status":"todo"}'
+ $newTask = Invoke-RestMethod -Method POST -Uri "http://localhost:8000/api/v1/tasks/" -Headers $headers -ContentType "application/json" -Body '{"title":"Finish Project 1","status":"todo"}'
  $newTask.id
 ```
 
 ```powershell
 # Partial Update task (change the status)
 # Replace 3 by the value of newTask.id
-Invoke-RestMethod -Method PUT -Uri "http://localhost:8000/tasks/3" -Headers $headers -ContentType "application/json" -Body '{"status":"done"}'
+Invoke-RestMethod -Method PUT -Uri "http://localhost:8000/api/v1/tasks/3" -Headers $headers -ContentType "application/json" -Body '{"status":"done"}'
 ```
 
 ```powershell
-Invoke-RestMethod -Method GET -Uri "http://localhost:8000/tasks" -Headers $headers
+Invoke-RestMethod -Method GET -Uri "http://localhost:8000/api/v1/tasks" -Headers $headers
 ```
