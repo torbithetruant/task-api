@@ -5,7 +5,7 @@ import structlog
 
 from app.database import get_db
 from app.models import Task, User
-from app.schemas import TaskCreate, TaskResponse
+from app.schemas import TaskCreate, TaskResponse, TaskUpdate
 from app.exceptions import TaskNotFoundException, ValidationException
 from app.deps import get_current_active_user
 
@@ -79,6 +79,38 @@ async def create_task(
     logger.info("task_created", task_id=task.id)
     return task
 
+
+@router.put("/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: int,
+    task_update: TaskUpdate,  # Use the new schema
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a task. Only the owner can update their own tasks."""
+    logger.info("updating_task", task_id=task_id, user_id=current_user.id)
+    
+    # 1. Fetch task (Security: Verify Ownership)
+    result = await db.execute(
+        select(Task).where(Task.id == task_id, Task.owner_id == current_user.id)
+    )
+    task = result.scalar_one_or_none()
+    
+    if not task:
+        raise TaskNotFoundException(task_id)
+    
+    # 2. Apply updates (exclude_unset allows partial updates)
+    update_data = task_update.model_dump(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        setattr(task, field, value)
+    
+    # 3. Save
+    await db.commit()
+    await db.refresh(task)
+    
+    logger.info("task_updated", task_id=task_id)
+    return task
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(

@@ -19,6 +19,10 @@ class TaskResponse(TaskBase):
     created_at: datetime
     updated_at: datetime | None = None
 
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    status: str | None = None
 
 class UserRegister(BaseModel):
     username: str
